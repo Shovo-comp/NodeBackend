@@ -1,0 +1,91 @@
+//// ------------------------------------------------------
+//// THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+//// ------------------------------------------------------
+
+Table User {
+  id Int [pk, increment]
+  phone String [unique, not null]
+  otp String
+  otpExpiry DateTime
+  role String [not null, default: 'user']
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table Worker {
+  id Int [pk, increment]
+  name String [not null]
+  phone String [unique, not null]
+  email String [unique, not null]
+  profilePic String
+  bio String
+  skills String[] [not null]
+  isAvailable Boolean [not null, default: true]
+  location String
+  services Service [not null]
+  otp String
+  otpExpiry DateTime
+  password String
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table Category {
+  id Int [pk, increment]
+  name String [unique, not null]
+  description String
+  jobs Job [not null]
+  services Service [not null]
+  images Image [not null]
+}
+
+Table Service {
+  id Int [pk, increment]
+  title String [not null]
+  description String [not null]
+  categoryId Int [not null]
+  category Category [not null]
+  price Float [not null]
+  workers Worker [not null]
+  images Image [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table Job {
+  id Int [pk, increment]
+  title String [not null]
+  description String [not null]
+  categoryId Int [not null]
+  bookingsCount Int [not null, default: 0]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  category Category [not null]
+  images Image [not null]
+}
+
+Table Image {
+  id Int [pk, increment]
+  url String [not null]
+  jobId Int
+  serviceId Int
+  categoryId Int
+  job Job
+  service Service
+  category Category
+}
+
+Table WorkerServices {
+  servicesId Int [ref: > Service.id]
+  workersId Int [ref: > Worker.id]
+}
+
+Ref: Service.categoryId > Category.id
+
+Ref: Job.categoryId > Category.id
+
+Ref: Image.jobId > Job.id
+
+Ref: Image.serviceId > Service.id
+
+Ref: Image.categoryId > Category.id

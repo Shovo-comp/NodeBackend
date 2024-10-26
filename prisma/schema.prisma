@@ -1,11 +1,9 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
+}
+
+generator dbml {
+  provider = "prisma-dbml-generator"
 }
 
 datasource db {
@@ -23,33 +21,65 @@ model User {
   updatedAt DateTime @updatedAt
 }
 
-// Category
+model Worker {
+  id             Int       @id @default(autoincrement())
+  name           String
+  phone          String    @unique
+  email          String    @unique
+  profilePic     String?   // URL to the profile picture (uploaded to Supabase)
+  bio            String?   // Brief description of worker's experience
+  skills         String[]  // Array of skills (e.g., ["plumbing", "painting"])
+  isAvailable    Boolean   @default(true) // Availability status
+  location       String?   // Location of the worker for booking proximity
+  services       Service[] @relation("WorkerServices") // Services the worker can offer
+  otp            String?
+  otpExpiry      DateTime?
+  password       String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
 
 model Category {
   id            Int       @id @default(autoincrement())
   name          String    @unique
-  description   String?   
+  description   String?
   jobs          Job[]
+  services      Service[]
+  images        Image[]   // Images associated with the category
 }
 
-//Job
+model Service {
+  id             Int       @id @default(autoincrement())
+  title          String
+  description    String
+  categoryId     Int
+  category       Category  @relation(fields: [categoryId], references: [id])
+  price          Float
+  workers        Worker[]  @relation("WorkerServices")
+  images         Image[]   // Images associated with the service
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
 model Job {
   id            Int       @id @default(autoincrement())
   title         String
   description   String
   categoryId    Int
-  bookingsCount Int     @default(0)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  category      Category @relation(fields: [categoryId], references: [id])
-  images        Image[]
+  bookingsCount Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  category      Category  @relation(fields: [categoryId], references: [id])
+  images        Image[]   // Images associated with the job
 }
 
-//Image
 model Image {
   id            Int       @id @default(autoincrement())
-  url           String    
-  jobId         Int
-  job           Job       @relation(fields: [jobId], references: [id])
-
+  url           String
+  jobId         Int?      // Optional job ID for job images
+  serviceId     Int?      // Optional service ID for service images
+  categoryId    Int?      // Optional category ID for category images
+  job           Job?      @relation(fields: [jobId], references: [id])
+  service       Service?  @relation(fields: [serviceId], references: [id])
+  category      Category? @relation(fields: [categoryId], references: [id])
 }
