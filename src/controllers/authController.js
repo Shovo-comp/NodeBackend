@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const { sendOTP } = require('../config/fast2sms');
 const { generateOTP } = require('../utils/generateOTP');
 const sendEmail = require("../services/emailService");
+const bcrypt = require("bcrypt");
 
 // Send OTP function
 exports.sendOTP = async (req, res) => {
@@ -43,6 +44,7 @@ exports.sendOTP = async (req, res) => {
     }
 };
 
+// Verify otp of user
 exports.verifyOTP = async (req, res) => {
     const { phone, otp } = req.body;
 
@@ -97,7 +99,70 @@ exports.verifyOTP = async (req, res) => {
     }
 };
 
+// Setup password of user
+exports.userSetupPassword = async (req, res) => {
+    const { phone, password } = req.body;
 
+    try {
+        const user = await prisma.user.findUnique({
+            where: { phone: phone.toString() }
+        });
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        // hash the password:
+
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+        const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+        
+
+        // Update user with the hashed password
+        await prisma.user.update({
+            where: { phone: phone.toString() },
+            data: { password: hashedPassword, token: token },
+        });
+
+        res.status(200).json({ message: 'Password set successfully' });
+    } catch (error) {
+        console.error("Error setting password:", error.message);
+        res.status(500).json({ error: 'Could not set password' });
+    }
+};
+
+
+// User login:
+exports.userLogin = async (req, res) => {
+    try {
+        const { phone, password } = req.body;
+
+        const user = await prisma.user.findUnique({
+            where: { phone: phone.toString() }
+        });
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+
+        if (!isPasswordValid) {
+            return res.status(401).json({ error: 'Invalid password' });
+        }
+
+        const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+        res.status(200).json({ token, message: 'Login successful' });
+    } catch (error) {
+        console.error("Error logging in:", error.message);
+        res.status(500).json({ error: 'Login failed' });
+    }
+}
+
+// Worker Registration
 exports.registerWorker = async (req, res) => {
     try {
         const { name, phone, email } = req.body;
@@ -124,14 +189,32 @@ exports.registerWorker = async (req, res) => {
                 otpExpiry
             }
         });
-
         const subject = "OTP Verification from Shovo";
         const text = `Your OTP for registration is ${otp}. It is valid for 10 minutes.`;
 
-        await sendEmail(email, subject, text);
+        try {
+            await sendEmail(email, subject, text);
+            console.log("Email sent successfully");
+        } catch (emailError) {
+            console.error("Error sending email:", emailError.message);
+            return res.status(500).json({
+                message: "Error sending email"
+            });
+        }
+
+
+        try {
+            await sendOTP(phone, otp);
+        } catch (smsError) {
+            console.error("Error sending SMS:", smsError.message);
+            return res.status(500).json({
+                message: "Error sending SMS"
+            });
+        }
+
 
         res.status(200).json({
-            message: "OTP sent successfully to email."
+            message: "OTP sent successfully to email and phone number"
         });
     }
 
@@ -143,6 +226,7 @@ exports.registerWorker = async (req, res) => {
     }
 };
 
+// Verify Worker
 exports.verifyWorkerOtp = async (req, res) => {
     try {
         const { phone, otp } = req.body;
@@ -186,4 +270,86 @@ exports.verifyWorkerOtp = async (req, res) => {
         });
     }
 };
+
+// Setup the worker password
+exports.setupPassword = async (req, res) => {
+    try {
+        const { phone, password } = req.body;
+
+        console.log("Password from request: ", password)
+        
+        //check worker exists
+        const worker = await prisma.worker.findUnique({
+            where: {phone: phone.toString()}
+        });
+
+        if (!worker) {
+            return res.status(404).json({ message: "Woker not found" })
+        }
+
+        // hash the password
+        const salt = await bcrypt.genSalt(10);
+        console.log("Salt: ", salt)
+        const hashedPassword = await bcrypt.hash(password, salt);
+        console.log("Hashed password: ", hashedPassword)
+
+       
+
+        const token = jwt.sign(
+            { userId: worker.id, role: worker.role },
+            process.env.JWT_SECRET,
+            { expiresIn: '1h' }
+        );
+
+         // update worker record with hashed password
+         await prisma.worker.update({
+            where: {phone: phone.toString()},
+            data: {password: hashedPassword, token: token}
+
+        });
+
+        console.log("Token: ", token)
+
+        res.status(200).json({ message: "Password setup successful" });
+        
+    } catch (error) {
+        console.error("Error setting up password:", error.message);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+//Worker Login
+exports.loginWorker = async (req, res) => {
+    try {
+      const { phone, password } = req.body;
+  
+      const worker = await prisma.worker.findUnique({
+        where: { phone: phone.toString() },
+      });
+  
+      if (!worker) {
+        return res.status(404).json({ message: "Worker not found" });
+      }
+  
+      const isPasswordValid = await bcrypt.compare(password, worker.password);
+      if (!isPasswordValid) {
+        return res.status(401).json({ message: "Invalid password" });
+      }
+
+      const role = worker.role;
+  
+      const token = jwt.sign(
+        { userId: worker.id, role },
+        process.env.JWT_SECRET,
+        { expiresIn: '1d' }
+      );
+  
+      return res.status(200).json({ token, role, message: "Login successful" });
+    } catch (error) {
+      console.error("Error logging in worker:", error.message);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  };
+
+
 

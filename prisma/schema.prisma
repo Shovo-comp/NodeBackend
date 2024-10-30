@@ -12,13 +12,21 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  phone     String   @unique
-  otp       String?
-  otpExpiry DateTime?
-  role      String   @default("user") // Could be admin, super admin, or worker
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            Int        @id @default(autoincrement())
+  name          String?    @unique     
+  phone         String     @unique
+  email         String?    @unique
+  otp           String?  
+  otpExpiry     DateTime?
+  role          String     @default("user") // Could be admin, super admin, or worker
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  password      String?  
+  token         String?  
+  location      String?     // Location of the worker for booking proximity
+  profilePic    String?     // URL to the profile picture (uploaded to Supabase)
+
+
 }
 
 model Worker {
@@ -35,8 +43,10 @@ model Worker {
   otp            String?
   otpExpiry      DateTime?
   password       String?
+  token          String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+  role           String @default("worker")
 }
 
 model Category {
